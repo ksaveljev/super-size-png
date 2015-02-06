@@ -1,4 +1,5 @@
 dist
+*.swp
 cabal-dev
 *.o
 *.hi
