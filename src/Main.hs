@@ -2,19 +2,29 @@
 
 import Options.Applicative
 import Data.ByteString (ByteString)
+import Control.Error (runScript, hoistEither)
 import qualified Data.ByteString.Char8 as B
 
 import Options
 
-outputResult :: Either ByteString ByteString -> IO ()
-outputResult (Left errorMessage) = B.putStr "Error: " >> B.putStrLn errorMessage
-outputResult (Right message) = B.putStrLn message
+verifyOptions :: Options -> Either String ()
+verifyOptions options =
+    if sizeIncrease options < 10
+      then Left "OH OH"
+      else Right ()
 
-increaseSize :: Options -> IO (Either ByteString ByteString)
-increaseSize = undefined
+increasePNGSize :: Options -> IO ()
+increasePNGSize options = runScript $ do
+  hoistEither $ verifyOptions options -- there is a limit on minimum size increase
+  undefined
+  {-
+  verifyInputFileHeader -- PNG header verification
+  genereateTEXTChunk -- bytestring with desired length
+  appendChunkToFile
+  -}
 
 main :: IO ()
-main = execParser opts >>= increaseSize >>= outputResult
+main = execParser opts >>= increasePNGSize
   where opts = info (helper <*> optionsParser)
                     (fullDesc <> progDesc "Increase size of a PNG input file by SIZE bytes" 
                               <> header "super-size-png - a tool for increasing size of a PNG file")
