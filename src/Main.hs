@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 import System.IO (openFile, hClose, IOMode(..))
 import Options.Applicative
 import Data.ByteString.Lazy (ByteString)
