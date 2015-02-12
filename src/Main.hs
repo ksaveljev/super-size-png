@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Data.Char (chr)
-import System.IO (openFile, hClose, IOMode(ReadMode))
+import System.IO (openFile, hClose, IOMode(..))
 import Options.Applicative
-import Data.ByteString (ByteString)
+import Data.ByteString.Lazy (ByteString)
+import Data.Binary (encode)
+import Data.Digest.CRC32 (crc32)
 import Control.Error (runScript, hoistEither, scriptIO)
-import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy as B
 
 import Options
 
@@ -19,10 +20,13 @@ verifyPNGHeader :: ByteString -> Either String ()
 verifyPNGHeader h = if h == expectedHeader
                       then Right () 
                       else Left "Incorrect PNG file provided (header mismatch)"
-  where expectedHeader = B.pack . map chr $ [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+  where expectedHeader = B.pack . map fromIntegral $ ([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]::[Integer])
 
 verifyIHDRChunk :: ByteString -> Either String ()
-verifyIHDRChunk = undefined -- TODO
+verifyIHDRChunk h = if B.drop 4 (B.take 8 h) == expectedHeaderType
+                      then Right ()
+                      else Left "Incorrect PNG file provided (IHDR chunk not found)"
+  where expectedHeaderType = B.pack [73, 72, 68, 82]
 
 -- keyword = 1 byte
 -- null separator = 1 byte
@@ -44,11 +48,22 @@ verifyOptions options =
       else Right ()
 
 genereateTEXTChunk :: Options -> ByteString
-genereateTEXTChunk = undefined -- TODO
+genereateTEXTChunk options = lengthChunk `B.append` typeChunk `B.append` dataChunk `B.append` crcChunk
+  where lengthChunk = encode (sizeIncrease options - 12)
+        typeChunk = B.pack [116, 69, 88, 116] -- tEXt
+        dataChunk = B.pack [70, 0] `B.append` B.replicate (fromIntegral (sizeIncrease options) - 2 - 12) 87
+        crcChunk = encode $ crc32 (typeChunk `B.append` dataChunk)
 
 -- append tEXt chunk right after IHDR chunk
 appendChunkToFile :: Options -> ByteString -> IO ()
-appendChunkToFile = undefined -- TODO
+appendChunkToFile options chunk = do
+    inputHandle <- openFile (inputFile options) ReadWriteMode
+    outputHandle <- openFile (outputFile options) WriteMode
+    B.hPut outputHandle =<< B.hGet inputHandle (pngHeaderSize + ihdrChunkSize)
+    B.hPut outputHandle chunk
+    B.hPut outputHandle =<< B.hGetContents inputHandle
+    hClose inputHandle
+    hClose outputHandle
 
 increasePNGSize :: Options -> IO ()
 increasePNGSize options = runScript $ do
