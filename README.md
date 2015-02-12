@@ -1,5 +1,4 @@
-# super-size-png
-Increase your PNG file size for testing
+# Increase your PNG file size for testing
 
 PNG file is built from chunks which are either important data (like image data)
 or some meta data which is not that important. Chunks can be of arbitrary size
